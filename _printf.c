@@ -1,106 +1,66 @@
 #include "main.h"
 
-/**
- * gen_fs_buf - generates FS buffers based on number of
- * variadic arguments
- * @s: formated string input
- * @n: number of variadic arguments
- *
- * Return: a buffer of FS structs
- */
-FS *gen_fs_buf(char *s, int n)
-{
-	FS *fs_buf;
-	int i = 0, j = 0;
-
-	fs_buf = malloc(sizeof(FS) * n);
-
-	if (!fs_buf)
-		return (NULL);
-
-	for (; j < n; i++)
-	{
-		if (s[i] == '%')
-		{
-			if (s[i + 1] == ' ')
-				continue;
-			if (fs_register(s[i + 1]))
-			{
-				fs_buf_switcher(s[i + 1], j, fs_buf);
-				j++;
-			}
-		}
-	}
-
-	return (fs_buf);
-}
+void print_buffer(char buffer[], int *buff_ind);
 
 /**
- * str_parser - brings together all functions required to parse
- * and generate an output string
- * @format: format input string
- * @args: va_list
- * @j: pointer to counter that tracks each char of the output string
- *
- * Return: char *
+ * _printf - Printf function
+ * @format: format.
+ * Return: Printed chars.
  */
-void str_parser(char *format, char *out_str, va_list args, int *j)
+int _printf(const char *format, ...)
 {
-	FS *fs_buf;
-	char *va_arg_str;
-	int i = 0, k = 0, l = 0; /* cntrs for format input char, va_arg & its char*/
-	bool is_percent_fs = false; /* checks if format specifier is a % */
+	int i, printed = 0, printed_chars = 0;
+	int flags, width, precision, size, buff_ind = 0;
+	va_list list;
+	char buffer[BUFF_SIZE];
 
-	fs_buf = gen_fs_buf(format, num_of_vars(format));
+	if (format == NULL)
+		return (-1);
 
-	for (; format[i]; i++)
+	va_start(list, format);
+
+	for (i = 0; format && format[i] != '\0'; i++)
 	{
-		if (check_fmt_spec((format + i), &is_percent_fs, &i))
+		if (format[i] != '%')
 		{
-			if (is_percent_fs)
-			{
-				out_str[*j] = '%';
-				is_percent_fs = false;
-				*j += 1;
-			}
-			else
-			{
-				va_arg_str = fs_buf[k].parser(args);
-				for (l = 0; va_arg_str[l]; l++)
-				{
-					out_str[*j] = va_arg_str[l];
-					*j += 1;
-				}
-				free(va_arg_str);
-				k++;
-			}
+			buffer[buff_ind++] = format[i];
+			if (buff_ind == BUFF_SIZE)
+				print_buffer(buffer, &buff_ind);
+			write(1, &format[i], 1);
+			printed_chars++;
 		}
 		else
 		{
-			out_str[*j] = format[i];
-			*j += 1;
+			print_buffer(buffer, &buff_ind);
+			flags = get_flags(format, &i);
+			width = get_width(format, &i, list);
+			precision = get_precision(format, &i, list);
+			size = get_size(format, &i);
+			++i;
+			printed = handle_print(format, &i, list, buffer,
+				flags, width, precision, size);
+			if (printed == -1)
+				return (-1);
+			printed_chars += printed;
 		}
 	}
-	out_str[*j] = '\0';
-	free(fs_buf);
+
+	print_buffer(buffer, &buff_ind);
+
+	va_end(list);
+
+	return (printed_chars);
 }
 
 /**
- * _printf - prints format string
- * @format: format input string
- *
- * Return: int (number of chars)
+ * print_buffer - Prints the contents of the buffer if it exist
+ * @buffer: Array of chars
+ * @buff_ind: Index at which to add next char, represents the length.
  */
-int _printf(char *format, ...)
+void print_buffer(char buffer[], int *buff_ind)
 {
-	va_list args;
-	int j = 0; /* output string (out_str) character counter */
-	char formated_str[1024];
+	if (*buff_ind > 0)
+		write(1, &buffer[0], *buff_ind);
 
-	va_start(args, format);
-	str_parser(format, formated_str, args, &j);
-	write(1, formated_str, j);
-	va_end(args);
-
-	return (j);
+	*buff_ind = 0;
 }
